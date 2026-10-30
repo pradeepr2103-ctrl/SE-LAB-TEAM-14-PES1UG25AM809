@@ -3,8 +3,8 @@ const bcrypt = require('bcryptjs');
 const { randomUUID } = require('crypto');
 const { signToken } = require('../auth');
 
-const MAX_ATTEMPTS = 5;
-const LOCK_SECONDS = 15 * 60;
+const MAX_ATTEMPTS = Number(process.env.MAX_LOGIN_ATTEMPTS) || 5;
+const LOCK_SECONDS = (Number(process.env.LOCK_MINUTES) || 15) * 60;
 const now = () => Math.floor(Date.now() / 1000);
 
 module.exports = (db, auth) => {
@@ -27,7 +27,7 @@ module.exports = (db, auth) => {
       const attempts = user.failed_attempts + 1;
       if (attempts >= MAX_ATTEMPTS) {
         db.prepare('UPDATE users SET failed_attempts = 0, locked_until = ? WHERE id = ?').run(now() + LOCK_SECONDS, user.id);
-        return res.status(423).json({ error: 'Too many failed attempts. Account locked for 15 minutes.' });
+        return res.status(423).json({ error: `Too many failed attempts. Account locked for ${LOCK_SECONDS / 60} minutes.` });
       }
       db.prepare('UPDATE users SET failed_attempts = ? WHERE id = ?').run(attempts, user.id);
       return res.status(401).json({ error: 'Invalid email or password' });
