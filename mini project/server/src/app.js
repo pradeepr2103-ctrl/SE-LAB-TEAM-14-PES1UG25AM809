@@ -12,6 +12,7 @@ function createApp(db) {
   app.use('/api/auth', require('./routes/auth')(db, auth));
   app.use('/api/assessments', require('./routes/assessments')(db, auth));
   app.use('/api/mood', require('./routes/mood')(db, auth));
+  app.use('/api/users', require('./routes/users')(db, auth));
 
   app.use((err, _req, res, _next) => {
     console.error(err);
