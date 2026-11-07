@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { api, setToken, getToken } from './api.js';
 import Users from './Users.jsx';
 import ChangePassword from './ChangePassword.jsx';
+import MoodTrend from './MoodTrend.jsx';
 
 const fmt = (ts) => new Date(ts * 1000).toLocaleString();
 
@@ -129,13 +130,16 @@ function History() {
   const [rows, setRows] = useState([]);
   useEffect(() => { api('/assessments/mine').then(setRows); }, []);
   return (
-    <table>
-      <thead><tr><th>Date</th><th>Score</th><th>Category</th></tr></thead>
-      <tbody>
-        {rows.length === 0 && <tr><td colSpan="3" className="muted">No assessments yet. Take one from the Assessment tab.</td></tr>}
-        {rows.map((r) => <tr key={r.id}><td>{fmt(r.created_at)}</td><td>{r.score}</td><td><b className={`tag ${r.category}`}>{r.category}</b></td></tr>)}
-      </tbody>
-    </table>
+    <div className="stack">
+      <table>
+        <thead><tr><th>Date</th><th>Score</th><th>Category</th></tr></thead>
+        <tbody>
+          {rows.length === 0 && <tr><td colSpan="3" className="muted">No assessments yet. Take one from the Assessment tab.</td></tr>}
+          {rows.map((r) => <tr key={r.id}><td>{fmt(r.created_at)}</td><td>{r.score}</td><td><b className={`tag ${r.category}`}>{r.category}</b></td></tr>)}
+        </tbody>
+      </table>
+      <MoodTrend />
+    </div>
   );
 }
 

@@ -29,5 +29,18 @@ module.exports = (db, auth) => {
     );
   });
 
+  // CWP-19: mood ratings for the last N days (7 to 90, default 30), oldest first, for the trend chart
+  r.get('/trend', (req, res) => {
+    const days = req.query.days === undefined ? 30 : Number(req.query.days);
+    if (!Number.isInteger(days) || days < 7 || days > 90) {
+      return res.status(400).json({ error: 'days must be an integer from 7 to 90' });
+    }
+    const since = new Date(Date.now() - (days - 1) * 86400000).toISOString().slice(0, 10);
+    const points = db
+      .prepare('SELECT day, mood FROM mood_checkins WHERE user_id = ? AND day >= ? ORDER BY day ASC')
+      .all(req.user.id, since);
+    res.json({ days, since, points });
+  });
+
   return r;
 };
