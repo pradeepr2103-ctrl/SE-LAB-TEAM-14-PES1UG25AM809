@@ -1,6 +1,7 @@
 const express = require('express');
 const { requireRole } = require('../auth');
 const { QUESTIONS, scoreAssessment, ValidationError } = require('../scoring');
+const { encrypt, decrypt } = require('../crypto');
 
 module.exports = (db, auth) => {
   const r = express.Router();
@@ -41,6 +42,32 @@ module.exports = (db, auth) => {
         )
         .all()
     );
+  });
+
+  // CWP-21: private counselor notes on an assessment, encrypted at rest. Only counselors; each reads only their own.
+  r.post('/:id/notes', requireRole('counselor'), (req, res) => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid assessment id' });
+    const { note } = req.body || {};
+    if (typeof note !== 'string' || !note.trim() || note.length > 1000) {
+      return res.status(400).json({ error: 'note must be text of 1 to 1000 characters' });
+    }
+    if (!db.prepare('SELECT 1 FROM assessments WHERE id = ?').get(id)) {
+      return res.status(404).json({ error: 'Assessment not found' });
+    }
+    const info = db
+      .prepare('INSERT INTO assessment_notes (assessment_id, counselor_id, note_enc) VALUES (?, ?, ?)')
+      .run(id, req.user.id, encrypt(note.trim()));
+    res.status(201).json({ id: info.lastInsertRowid });
+  });
+
+  r.get('/:id/notes', requireRole('counselor'), (req, res) => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid assessment id' });
+    const rows = db
+      .prepare('SELECT id, note_enc, created_at FROM assessment_notes WHERE assessment_id = ? AND counselor_id = ? ORDER BY id DESC')
+      .all(id, req.user.id);
+    res.json(rows.map((n) => ({ id: n.id, note: decrypt(n.note_enc), created_at: n.created_at })));
   });
 
   return r;
