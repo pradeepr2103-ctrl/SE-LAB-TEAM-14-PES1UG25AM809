@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, setToken, getToken } from './api.js';
 import Users from './Users.jsx';
+import ChangePassword from './ChangePassword.jsx';
 
 const fmt = (ts) => new Date(ts * 1000).toLocaleString();
 
@@ -179,11 +180,11 @@ export default function App() {
   if (!user) return <Login onLogin={(u) => { setUser(u); setTab('assessment'); }} />;
 
   const isStudent = user.role === 'student';
-    const tabs = isStudent
-    ? ['assessment', 'mood', 'history']
+  const tabs = isStudent
+    ? ['assessment', 'mood', 'history', 'password']
     : user.role === 'admin'
-      ? ['students', 'users']
-      : ['students'];
+      ? ['students', 'users', 'password']
+      : ['students', 'password'];
   const active = tabs.includes(tab) ? tab : tabs[0];
 
   return (
@@ -200,6 +201,7 @@ export default function App() {
         {active === 'history' && <History key={bump} />}
         {active === 'students' && <Students />}
         {active === 'users' && <Users me={user.id} />}
+        {active === 'password' && <ChangePassword onChanged={() => { setToken(null); setUser(null); }} />}
       </main>
     </>
   );
