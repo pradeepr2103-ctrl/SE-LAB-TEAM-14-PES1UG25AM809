@@ -1,4 +1,4 @@
-# SE Lab 1 – Corporate Mental Wellness & Counseling Platform
+# SE MINI PROJECT – Corporate Mental Wellness & Counseling Platform
 
 **Team Number:** 14
 **Problem Statement #14:** Corporate Mental Wellness & Counseling Platform

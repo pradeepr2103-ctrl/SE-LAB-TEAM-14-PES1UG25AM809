@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
 import { api, setToken, getToken } from './api.js';
 import Users from './Users.jsx';
+import ChangePassword from './ChangePassword.jsx';
+import MoodTrend from './MoodTrend.jsx';
+import Notes from './Notes.jsx';
 
 const fmt = (ts) => new Date(ts * 1000).toLocaleString();
 
@@ -128,19 +131,24 @@ function History() {
   const [rows, setRows] = useState([]);
   useEffect(() => { api('/assessments/mine').then(setRows); }, []);
   return (
-    <table>
-      <thead><tr><th>Date</th><th>Score</th><th>Category</th></tr></thead>
-      <tbody>
-        {rows.length === 0 && <tr><td colSpan="3" className="muted">No assessments yet. Take one from the Assessment tab.</td></tr>}
-        {rows.map((r) => <tr key={r.id}><td>{fmt(r.created_at)}</td><td>{r.score}</td><td><b className={`tag ${r.category}`}>{r.category}</b></td></tr>)}
-      </tbody>
-    </table>
+    <div className="stack">
+      <table>
+        <thead><tr><th>Date</th><th>Score</th><th>Category</th></tr></thead>
+        <tbody>
+          {rows.length === 0 && <tr><td colSpan="3" className="muted">No assessments yet. Take one from the Assessment tab.</td></tr>}
+          {rows.map((r) => <tr key={r.id}><td>{fmt(r.created_at)}</td><td>{r.score}</td><td><b className={`tag ${r.category}`}>{r.category}</b></td></tr>)}
+        </tbody>
+      </table>
+      <MoodTrend />
+    </div>
   );
 }
 
-function Students() {
+function Students({ role }) {
   const [rows, setRows] = useState([]);
   const [filter, setFilter] = useState('all');
+  const [openId, setOpenId] = useState(null);
+  const canNote = role === 'counselor';
   useEffect(() => { api('/assessments').then(setRows); }, []);
   const shown = rows.filter((r) => filter === 'all' || r.category === filter);
   return (
@@ -149,12 +157,21 @@ function Students() {
         {['all', 'high', 'moderate', 'low'].map((c) => <option key={c}>{c}</option>)}
       </select></label>
       <table>
-        <thead><tr><th>Student</th><th>Date</th><th>Score</th><th>Category</th></tr></thead>
+        <thead><tr><th>Student</th><th>Date</th><th>Score</th><th>Category</th>{canNote && <th>Notes</th>}</tr></thead>
         <tbody>
-          {shown.length === 0 && <tr><td colSpan="4" className="muted">No assessments match.</td></tr>}
-          {shown.map((r) => <tr key={r.id}><td>{r.student}</td><td>{fmt(r.created_at)}</td><td>{r.score}</td><td><b className={`tag ${r.category}`}>{r.category}</b></td></tr>)}
+          {shown.length === 0 && <tr><td colSpan={canNote ? 5 : 4} className="muted">No assessments match.</td></tr>}
+          {shown.map((r) => (
+            <tr key={r.id}>
+              <td>{r.student}</td><td>{fmt(r.created_at)}</td><td>{r.score}</td>
+              <td><b className={`tag ${r.category}`}>{r.category}</b></td>
+              {canNote && (
+                <td><button onClick={() => setOpenId(openId === r.id ? null : r.id)}>{openId === r.id ? 'Hide' : 'Notes'}</button></td>
+              )}
+            </tr>
+          ))}
         </tbody>
       </table>
+      {canNote && openId && <Notes key={openId} assessmentId={openId} />}
     </div>
   );
 }
@@ -179,11 +196,11 @@ export default function App() {
   if (!user) return <Login onLogin={(u) => { setUser(u); setTab('assessment'); }} />;
 
   const isStudent = user.role === 'student';
-    const tabs = isStudent
-    ? ['assessment', 'mood', 'history']
+  const tabs = isStudent
+    ? ['assessment', 'mood', 'history', 'password']
     : user.role === 'admin'
-      ? ['students', 'users']
-      : ['students'];
+      ? ['students', 'users', 'password']
+      : ['students', 'password'];
   const active = tabs.includes(tab) ? tab : tabs[0];
 
   return (
@@ -198,8 +215,9 @@ export default function App() {
         {active === 'assessment' && <Assessment onDone={() => { setBump(bump + 1); setTab('history'); }} />}
         {active === 'mood' && <Mood />}
         {active === 'history' && <History key={bump} />}
-        {active === 'students' && <Students />}
+        {active === 'students' && <Students role={user.role} />}
         {active === 'users' && <Users me={user.id} />}
+        {active === 'password' && <ChangePassword onChanged={() => { setToken(null); setUser(null); }} />}
       </main>
     </>
   );

@@ -2,6 +2,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const { randomUUID } = require('crypto');
 const { signToken } = require('../auth');
+const { validatePassword } = require('../password');
 
 const MAX_ATTEMPTS = Number(process.env.MAX_LOGIN_ATTEMPTS) || 5;
 const LOCK_SECONDS = (Number(process.env.LOCK_MINUTES) || 15) * 60;
@@ -42,6 +43,27 @@ module.exports = (db, auth) => {
     db.prepare('INSERT OR IGNORE INTO revoked_tokens (jti, expires_at) VALUES (?, ?)').run(req.user.jti, req.user.exp);
     db.prepare('DELETE FROM revoked_tokens WHERE expires_at < ?').run(now());
     res.status(204).end();
+  });
+
+  // CWP-18: change own password. Ends the current session so the person signs in again.
+  r.post('/change-password', auth, (req, res) => {
+    const { currentPassword, newPassword } = req.body || {};
+    if (typeof currentPassword !== 'string' || typeof newPassword !== 'string') {
+      return res.status(400).json({ error: 'currentPassword and newPassword are required' });
+    }
+    const weak = validatePassword(newPassword);
+    if (weak) return res.status(400).json({ error: weak });
+    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
+    if (!user || !bcrypt.compareSync(currentPassword, user.password_hash)) {
+      return res.status(400).json({ error: 'Current password is incorrect' });
+    }
+    if (currentPassword === newPassword) {
+      return res.status(400).json({ error: 'New password must be different from the current one' });
+    }
+    db.prepare('UPDATE users SET password_hash = ?, failed_attempts = 0, locked_until = NULL WHERE id = ?')
+      .run(bcrypt.hashSync(newPassword, 10), user.id);
+    db.prepare('INSERT OR IGNORE INTO revoked_tokens (jti, expires_at) VALUES (?, ?)').run(req.user.jti, req.user.exp);
+    res.json({ message: 'Password changed. Please sign in again.' });
   });
 
   r.get('/me', auth, (req, res) => res.json({ id: req.user.id, name: req.user.name, role: req.user.role }));
